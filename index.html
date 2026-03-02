@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Video Merger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Variables ─────────────────────────────────────────── */
+    :root {
+      --bg:        #0a0c10;
+      --surface:   #111418;
+      --border:    #1e2530;
+      --accent:    #00e5ff;
+      --accent2:   #7b61ff;
+      --danger:    #ff4d6d;
+      --success:   #00c896;
+      --text:      #e8edf5;
+      --muted:     #5a6478;
+      --radius:    16px;
+      --glow:      0 0 40px rgba(0,229,255,.15);
+    }
+
+    /* ─── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ─── Animated Background ───────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 20% 20%, rgba(0,229,255,.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 60% at 80% 80%, rgba(123,97,255,.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* ─── Grid Lines ────────────────────────────────────────── */
+    .grid-bg {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* ─── Layout ─────────────────────────────────────────────── */
+    .page {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      gap: 2rem;
+    }
+
+    /* ─── Header ─────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+    }
+    .header .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .35rem .9rem;
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-size: .72rem;
+      font-family: 'Space Mono', monospace;
+      color: var(--accent);
+      letter-spacing: .08em;
+      margin-bottom: 1.2rem;
+      background: rgba(0,229,255,.05);
+    }
+    .header .badge span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
+    .header h1 {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+    }
+    .header h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p {
+      margin-top: .75rem;
+      color: var(--muted);
+      font-size: .95rem;
+      font-weight: 300;
+    }
+
+    /* ─── Card ───────────────────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--glow);
+      transition: box-shadow .3s;
+    }
+
+    /* ─── Drop Zone ──────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all .25s;
+      position: relative;
+      background: rgba(255,255,255,.015);
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(0,229,255,.04);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-zone .icon {
+      font-size: 2.5rem;
+      margin-bottom: .8rem;
+      display: block;
+    }
+    .drop-zone .label {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: .4rem;
+    }
+    .drop-zone .sublabel {
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    /* ─── File Selected State ────────────────────────────────── */
+    .file-info {
+      display: none;
+      align-items: center;
+      gap: 1rem;
+      background: rgba(0,229,255,.06);
+      border: 1px solid rgba(0,229,255,.25);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      margin-top: 1rem;
+    }
+    .file-info.show { display: flex; }
+    .file-info .file-icon {
+      width: 40px; height: 40px;
+      background: rgba(0,229,255,.15);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; flex-shrink: 0;
+    }
+    .file-info .file-name {
+      font-size: .88rem;
+      font-weight: 500;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    .file-info .file-size {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: .15rem;
+    }
+    .file-info .remove-btn {
+      margin-right: auto;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: .25rem;
+      transition: color .2s;
+      flex-shrink: 0;
+    }
+    .file-info .remove-btn:hover { color: var(--danger); }
+
+    /* ─── Submit Button ──────────────────────────────────────── */
+    .submit-btn {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: .9rem 1.5rem;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 10px;
+      color: #000;
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+    }
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,229,255,.3);
+    }
+    .submit-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ─── N8N URL Config ─────────────────────────────────────── */
+    .config-row {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1.25rem;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .6rem .9rem;
+    }
+    .config-row label {
+      font-size: .75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      font-family: 'Space Mono', monospace;
+    }
+    .config-row input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: .8rem;
+      font-family: 'Space Mono', monospace;
+      min-width: 0;
+    }
+    .config-row input::placeholder { color: var(--muted); }
+
+    /* ─── Loading State ──────────────────────────────────────── */
+    #loading-section {
+      display: none;
+      text-align: center;
+    }
+    #loading-section.show { display: block; }
+
+    .loader-wrap {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 1.5rem;
+    }
+    .loader-ring {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      animation: spin 1.2s linear infinite;
+    }
+    .loader-ring:nth-child(1) { border-top-color: var(--accent); animation-duration: 1.2s; }
+    .loader-ring:nth-child(2) { border-right-color: var(--accent2); inset: 8px; animation-duration: 1.8s; animation-direction: reverse; }
+    .loader-ring:nth-child(3) { border-bottom-color: var(--success); inset: 16px; animation-duration: 2.4s; }
+    .loader-core {
+      position: absolute;
+      inset: 28px;
+      background: radial-gradient(circle, rgba(0,229,255,.2), transparent);
+      border-radius: 50%;
+      animation: breathe 2s ease-in-out infinite;
+    }
+
+    .loading-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: .5rem;
+    }
+    .loading-sub {
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    .progress-steps {
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+      text-align: right;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .6rem .9rem;
+      border-radius: 8px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid transparent;
+      font-size: .82rem;
+      color: var(--muted);
+      transition: all .4s;
+    }
+    .step.active {
+      color: var(--text);
+      border-color: var(--accent);
+      background: rgba(0,229,255,.05);
+    }
+    .step.done { color: var(--success); border-color: rgba(0,200,150,.3); background: rgba(0,200,150,.05); }
+    .step .step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background .4s;
+    }
+    .step.active .step-dot { background: var(--accent); animation: pulse 1s infinite; }
+    .step.done .step-dot { background: var(--success); }
+
+    /* ─── Result State ───────────────────────────────────────── */
+    #result-section { display: none; }
+    #result-section.show { display: block; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-bottom: 1.25rem;
+    }
+    .result-badge {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .4rem .9rem;
+      background: rgba(0,200,150,.1);
+      border: 1px solid rgba(0,200,150,.3);
+      border-radius: 999px;
+      color: var(--success);
+      font-size: .8rem;
+      font-weight: 500;
+    }
+    .result-badge::before {
+      content: '✓';
+      font-weight: 700;
+    }
+
+    .video-wrapper {
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      border: 1px solid var(--border);
+      position: relative;
+      box-shadow: 0 0 40px rgba(0,0,0,.5);
+    }
+    #result-video {
+      width: 100%;
+      display: block;
+      max-height: 320px;
+      object-fit: contain;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: .75rem;
+      margin-top: 1rem;
+    }
+    .action-btn {
+      flex: 1;
+      padding: .75rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      font-size: .9rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      transition: all .2s;
+      text-decoration: none;
+    }
+    .action-btn.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-color: transparent;
+      color: #000;
+    }
+    .action-btn:hover { transform: translateY(-2px); }
+    .action-btn.primary:hover { box-shadow: 0 6px 20px rgba(0,229,255,.3); }
+
+    .again-btn {
+      width: 100%;
+      margin-top: 1rem;
+      padding: .7rem;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      font-size: .88rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .again-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── Error ──────────────────────────────────────────────── */
+    .error-box {
+      display: none;
+      margin-top: 1rem;
+      padding: .9rem 1.1rem;
+      background: rgba(255,77,109,.08);
+      border: 1px solid rgba(255,77,109,.3);
+      border-radius: 10px;
+      color: var(--danger);
+      font-size: .85rem;
+      line-height: 1.5;
+    }
+    .error-box.show { display: block; }
+
+    /* ─── Footer ─────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      font-size: .75rem;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* ─── Animations ─────────────────────────────────────────── */
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+    @keyframes spin  { to { transform: rotate(360deg); } }
+    @keyframes breathe { 0%,100%{opacity:.4} 50%{opacity:1} }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0);    }
+    }
+    .card { animation: fadeUp .5s ease both; }
+    .header { animation: fadeUp .5s .1s ease both; }
+  </style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<main class="page">
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="badge"><span></span> n8n Automation</div>
+    <h1>دمج الصوت<br>مع <em>الفيديو</em></h1>
+    <p>ارفع ملف الصوت وسنتولى الباقي تلقائياً</p>
+  </header>
+
+  <!-- ── Upload Card ── -->
+  <div class="card" id="upload-section">
+
+    <!-- N8N Webhook URL Config -->
+    <div class="config-row">
+      <label>WEBHOOK</label>
+      <input
+        type="url"
+        id="webhook-url"
+        placeholder="https://your-n8n.com/webhook/YOUR-ID"
+        autocomplete="off"
+      />
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="drop-zone">
+      <input
+        type="file"
+        id="audio-file"
+        accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.wma,.opus"
+      />
+      <span class="icon">🎵</span>
+      <div class="label">اسحب ملف الصوت هنا</div>
+      <div class="sublabel">أو انقر للاختيار — جميع صيغ الصوت مدعومة</div>
+    </div>
+
+    <!-- File Info -->
+    <div class="file-info" id="file-info">
+      <div class="file-icon">🎵</div>
+      <div>
+        <div class="file-name" id="file-name-text">—</div>
+        <div class="file-size" id="file-size-text">—</div>
+      </div>
+      <button class="remove-btn" id="remove-btn" title="إزالة">✕</button>
+    </div>
+
+    <!-- Error Box -->
+    <div class="error-box" id="error-box"></div>
+
+    <!-- Submit -->
+    <button class="submit-btn" id="submit-btn" disabled>
+      <span>🚀</span>
+      <span>ابدأ المعالجة</span>
+    </button>
+  </div>
+
+  <!-- ── Loading Card ── -->
+  <div class="card" id="loading-section">
+    <div class="loader-wrap">
+      <div class="loader-ring"></div>
+      <div class="loader-ring"></div>
+      <div class="loader-ring"></div>
+      <div class="loader-core"></div>
+    </div>
+    <div class="loading-title">جاري المعالجة…</div>
+    <div class="loading-sub">لا تغلق هذه الصفحة</div>
+    <div class="progress-steps" id="steps-container">
+      <div class="step active" id="step-1"><div class="step-dot"></div> رفع ملف الصوت</div>
+      <div class="step"        id="step-2"><div class="step-dot"></div> تنزيل الفيديو من Google Drive</div>
+      <div class="step"        id="step-3"><div class="step-dot"></div> دمج الصوت والفيديو عبر FFmpeg</div>
+      <div class="step"        id="step-4"><div class="step-dot"></div> تجهيز الملف النهائي</div>
+    </div>
+  </div>
+
+  <!-- ── Result Card ── -->
+  <div class="card" id="result-section">
+    <div class="result-header">
+      <div class="result-badge">اكتملت المعالجة</div>
+    </div>
+
+    <div class="video-wrapper">
+      <video id="result-video" controls playsinline></video>
+    </div>
+
+    <div class="result-actions">
+      <button class="action-btn" id="watch-btn" onclick="document.getElementById('result-video').play()">
+        ▶ مشاهدة
+      </button>
+      <a class="action-btn primary" id="download-btn" download="output_video.mp4">
+        ⬇ تنزيل
+      </a>
+    </div>
+
+    <button class="again-btn" id="again-btn">↺ معالجة ملف آخر</button>
+  </div>
+
+  <footer class="footer">Powered by n8n + FFmpeg</footer>
+
+</main>
+
+<script>
+  // ─── DOM refs ────────────────────────────────────────────────
+  const dropZone     = document.getElementById('drop-zone');
+  const fileInput    = document.getElementById('audio-file');
+  const fileInfo     = document.getElementById('file-info');
+  const fileNameTxt  = document.getElementById('file-name-text');
+  const fileSizeTxt  = document.getElementById('file-size-text');
+  const removeBtn    = document.getElementById('remove-btn');
+  const submitBtn    = document.getElementById('submit-btn');
+  const uploadSec    = document.getElementById('upload-section');
+  const loadingSec   = document.getElementById('loading-section');
+  const resultSec    = document.getElementById('result-section');
+  const errorBox     = document.getElementById('error-box');
+  const resultVideo  = document.getElementById('result-video');
+  const downloadBtn  = document.getElementById('download-btn');
+  const againBtn     = document.getElementById('again-btn');
+  const webhookInput = document.getElementById('webhook-url');
+
+  // ─── Persist webhook URL ─────────────────────────────────────
+  const STORAGE_KEY = 'n8n_webhook_url';
+  const savedUrl = localStorage.getItem(STORAGE_KEY);
+  if (savedUrl) webhookInput.value = savedUrl;
+  webhookInput.addEventListener('change', () => {
+    localStorage.setItem(STORAGE_KEY, webhookInput.value.trim());
+  });
+
+  // ─── File handling ───────────────────────────────────────────
+  let selectedFile = null;
+
+  function formatBytes(bytes) {
+    if (bytes < 1024)       return bytes + ' B';
+    if (bytes < 1048576)    return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(2) + ' MB';
+  }
+
+  function setFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    fileNameTxt.textContent = file.name;
+    fileSizeTxt.textContent = formatBytes(file.size);
+    fileInfo.classList.add('show');
+    submitBtn.disabled = false;
+    hideError();
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    fileInfo.classList.remove('show');
+    submitBtn.disabled = true;
+  }
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  removeBtn.addEventListener('click', (e) => { e.preventDefault(); clearFile(); });
+
+  // Drag & Drop
+  dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) setFile(file);
+  });
+
+  // ─── Error helpers ───────────────────────────────────────────
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('show');
+  }
+  function hideError() {
+    errorBox.classList.remove('show');
+    errorBox.textContent = '';
+  }
+
+  // ─── Steps animation ─────────────────────────────────────────
+  const STEP_DELAYS = [0, 4000, 9000, 16000]; // ms after submit
+  let stepTimers = [];
+
+  function activateSteps() {
+    // mark step 1 active immediately
+    STEP_DELAYS.forEach((delay, i) => {
+      const t = setTimeout(() => {
+        const all = document.querySelectorAll('.step');
+        all.forEach((s, j) => {
+          if (j < i)  { s.classList.remove('active'); s.classList.add('done'); }
+          if (j === i){ s.classList.add('active'); s.classList.remove('done'); }
+        });
+      }, delay);
+      stepTimers.push(t);
+    });
+  }
+
+  function clearStepTimers() {
+    stepTimers.forEach(clearTimeout);
+    stepTimers = [];
+    document.querySelectorAll('.step').forEach(s => {
+      s.classList.remove('active','done');
+    });
+    document.querySelector('.step').classList.add('active');
+  }
+
+  // ─── Show / hide sections ────────────────────────────────────
+  function showSection(name) {
+    uploadSec .classList.toggle('show', name === 'upload');
+    loadingSec.classList.toggle('show', name === 'loading');
+    resultSec .classList.toggle('show', name === 'result');
+
+    uploadSec .style.display  = name === 'upload'  ? '' : 'none';
+    loadingSec.style.display  = name === 'loading' ? '' : 'none';
+    resultSec .style.display  = name === 'result'  ? '' : 'none';
+  }
+
+  // ─── Submit ──────────────────────────────────────────────────
+  submitBtn.addEventListener('click', async () => {
+    hideError();
+
+    const webhookUrl = webhookInput.value.trim();
+    if (!webhookUrl) {
+      showError('⚠️ الرجاء إدخال رابط Webhook الخاص بـ n8n أولاً');
+      return;
+    }
+    if (!selectedFile) {
+      showError('⚠️ الرجاء اختيار ملف صوت أولاً');
+      return;
+    }
+
+    // Switch to loading view
+    showSection('loading');
+    activateSteps();
+
+    // Build FormData — field name must match what n8n Webhook expects
+    const formData = new FormData();
+    formData.append('audio_file', selectedFile, selectedFile.name);
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        body: formData,
+        // No Content-Type header — browser sets it with boundary automatically
+      });
+
+      clearStepTimers();
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`خطأ من السيرفر (${response.status}): ${errText.slice(0, 200)}`);
+      }
+
+      // Check content type
+      const contentType = response.headers.get('Content-Type') || '';
+
+      let videoBlob;
+
+      if (contentType.includes('video') || contentType.includes('octet-stream')) {
+        // Direct binary response
+        videoBlob = await response.blob();
+      } else if (contentType.includes('application/json')) {
+        // JSON response — might contain base64 video
+        const data = await response.json();
+
+        // Try common keys
+        const b64 = data.video_base64 || data.data || data.output_video;
+        if (b64) {
+          const byteChars = atob(b64);
+          const byteNums  = new Uint8Array(byteChars.length);
+          for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
+          videoBlob = new Blob([byteNums], { type: 'video/mp4' });
+        } else if (data.url || data.download_url) {
+          // Redirect URL
+          const link = document.createElement('a');
+          link.href     = data.url || data.download_url;
+          link.download = 'output_video.mp4';
+          link.target   = '_blank';
+          downloadBtn.href = link.href;
+          resultVideo.src  = link.href;
+          showSection('result');
+          return;
+        } else {
+          throw new Error('تعذر العثور على الفيديو في الرد. تأكد من إعداد Respond to Webhook بشكل صحيح.');
+        }
+      } else {
+        // Try as binary anyway
+        videoBlob = await response.blob();
+      }
+
+      // Mark all steps done
+      document.querySelectorAll('.step').forEach(s => {
+        s.classList.remove('active');
+        s.classList.add('done');
+      });
+
+      // Create object URL
+      const videoUrl = URL.createObjectURL(videoBlob);
+      resultVideo.src  = videoUrl;
+      downloadBtn.href = videoUrl;
+
+      // Revoke old URLs on cleanup
+      downloadBtn.onclick = null;
+
+      showSection('result');
+
+    } catch (err) {
+      clearStepTimers();
+      showSection('upload');
+      showError('❌ ' + (err.message || 'حدث خطأ غير متوقع'));
+      console.error(err);
+    }
+  });
+
+  // ─── Again button ────────────────────────────────────────────
+  againBtn.addEventListener('click', () => {
+    // Revoke previous video URL
+    if (resultVideo.src) URL.revokeObjectURL(resultVideo.src);
+    resultVideo.src  = '';
+    downloadBtn.href = '#';
+
+    clearFile();
+    hideError();
+    showSection('upload');
+  });
+
+  // ─── Init ────────────────────────────────────────────────────
+  showSection('upload');
+</script>
+
+</body>
+</html>
