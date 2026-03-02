@@ -464,7 +464,7 @@
   <div class="card" id="upload-section">
 
     <!-- N8N Webhook URL Config -->
-    <div class="config-row" style:"hide">
+    <div class="config-row" style = "display:none">
       <label>WEBHOOK</label>
       <input
         type="url"
@@ -670,7 +670,7 @@
   submitBtn.addEventListener('click', async () => {
     hideError();
 
-    const webhookUrl = webhookInput.value.trim();
+    const webhookUrl = "https://tasneemahmed-n8n.hf.space/webhook/4a9b06b2-24c6-47fe-bf9c-3167c63e143e";
     if (!webhookUrl) {
       showError('⚠️ الرجاء إدخال رابط Webhook الخاص بـ n8n أولاً');
       return;
